@@ -11,12 +11,14 @@ import (
 // A passthrough type allowing us a customer "parser class"
 type RCONParser struct {
   *bufio.Reader
+  *bufio.Writer
 }
 
 // Get an instance of our "parser class"
-func NewRCONParser(r io.Reader) *RCONParser {
+func NewRCONParser(r io.Reader, w io.Writer) *RCONParser {
   return &RCONParser{
     Reader: bufio.NewReader(r),
+    Writer: bufio.NewWriter(w),
   }
 }
 
@@ -87,9 +89,21 @@ func (reader *RCONParser) Decode() (*RCONPacket, error) {
   return &pkt, nil
 }
 
+// This function assumes that the Packet is complete and correct, and just writes the results out.
+func (writer *RCONParser) Encode(pkt *RCONPacket) (error) {
+  binary.Write(writer, binary.LittleEndian, pkt.length)
+  binary.Write(writer, binary.LittleEndian, pkt.reqID)
+  binary.Write(writer, binary.LittleEndian, pkt.reqType)
+  binary.Write(writer, binary.LittleEndian, pkt.payload)
+  binary.Write(writer, binary.LittleEndian, pkt.nullPad)
+  return writer.Flush()
+}
+
 
 func main() {
   fmt.Println("Minecontrol running...")
+
+  
 }
 
 
