@@ -4,6 +4,8 @@ import (
   "bufio"
   "encoding/binary"
   "net"
+  "math/rand"
+  "time"
 )
 
 /*
@@ -56,23 +58,37 @@ type MCRCONReaderWriter struct {
 
 func NewClient(addr string, passwd string) *MCRCONClient {
   nClient := MCRCONClient{}
+  nClient.Connected = false
 
   conn, err := net.Dial("tcp", addr)
   if err != nil {
-      nClient.Connected = false
       return &nClient
   }
   nClient.conn = conn
-  nClient.Connected = true
 
   w := bufio.NewWriter(conn)
   r := bufio.NewReader(conn)
   nRW := MCRCONReaderWriter{r,w}
   nClient.rw = &nRW
 
+  // Make a pseudo-random session ID
+  rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+  openPkt := nClient.Build(rnd.Int(), 3, passwd)
+  nClient.Encode(openPkt)
+  authPkt, err := nClient.Decode()
+
+  if err != nil {
+    return &nClient
+  }
+
+  // We're only connected if it returns a request type of 2.
+  if authPkt.reqType == 2 {
+    nClient.Connected = true
+  }
+
   return &nClient
 }
-
 
 func (client *MCRCONClient) Close() () {
   client.Connected = false

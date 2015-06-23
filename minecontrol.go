@@ -8,22 +8,14 @@ import (
 func main() {
   fmt.Println("Minecontrol running...")
 
-
   client := mcrcon.NewClient("127.0.0.1:25575", "password")
-  defer client.Close()
 
-
-  openPkt := client.Build(666, 3, "password")
-  fmt.Println("Sending packet: ", openPkt)
-
-  client.Encode(openPkt)
-  packet, err := client.Decode()
-
-  if(err != nil) {
-    fmt.Println("FATAL: ", err)
+  if(client.Connected != true) {
+    fmt.Println("FATAL: Client could not connect")
+    return
   }
 
-  fmt.Println("Auth Result packet was", packet)
+  fmt.Println("Getting player list...")
 
   getUserPkt := client.Build(666, 2, "/list")
   client.Encode(getUserPkt)
@@ -33,9 +25,9 @@ func main() {
     fmt.Println("FATAL: ", rUserErr)
   }
 
-  fmt.Println("User result was: ", rUserPkt)
   fmt.Println(rUserPkt.Payload)
 
+  client.Close()
 }
 
 
