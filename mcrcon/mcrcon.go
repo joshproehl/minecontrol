@@ -1,11 +1,11 @@
 package mcrcon
 
 import (
-  "bufio"
-  "encoding/binary"
-  "net"
-  "math/rand"
-  "time"
+	"bufio"
+	"encoding/binary"
+	"math/rand"
+	"net"
+	"time"
 )
 
 /*
@@ -39,111 +39,109 @@ Maximum request length: 1460 (giving a max payload length of 1446)
 Code exists in the notchian server to split large responses (>4096 bytes) into multiple smaller packets. However, the code that actually encodes each packet expects a max length of 1248, giving a max response payload length of 1234 bytes.
 */
 type MCRCONPacket struct {
-  length, reqID, reqType int32
-  Payload string
-  nullPad [2]byte
+	length, reqID, reqType int32
+	Payload                string
+	nullPad                [2]byte
 }
 
-
 type MCRCONClient struct {
-  Connected bool
-  conn net.Conn
-  rw *MCRCONReaderWriter
+	Connected bool
+	conn      net.Conn
+	rw        *MCRCONReaderWriter
 }
 
 type MCRCONReaderWriter struct {
-  *bufio.Reader
-  *bufio.Writer
+	*bufio.Reader
+	*bufio.Writer
 }
 
 func NewClient(addr string, passwd string) *MCRCONClient {
-  nClient := MCRCONClient{}
-  nClient.Connected = false
+	nClient := MCRCONClient{}
+	nClient.Connected = false
 
-  conn, err := net.Dial("tcp", addr)
-  if err != nil {
-      return &nClient
-  }
-  nClient.conn = conn
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return &nClient
+	}
+	nClient.conn = conn
 
-  w := bufio.NewWriter(conn)
-  r := bufio.NewReader(conn)
-  nRW := MCRCONReaderWriter{r,w}
-  nClient.rw = &nRW
+	w := bufio.NewWriter(conn)
+	r := bufio.NewReader(conn)
+	nRW := MCRCONReaderWriter{r, w}
+	nClient.rw = &nRW
 
-  // Make a pseudo-random session ID
-  rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// Make a pseudo-random session ID
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-  openPkt := nClient.Build(rnd.Int(), 3, passwd)
-  nClient.Encode(openPkt)
-  authPkt, err := nClient.Decode()
+	openPkt := nClient.Build(rnd.Int(), 3, passwd)
+	nClient.Encode(openPkt)
+	authPkt, err := nClient.Decode()
 
-  if err != nil {
-    return &nClient
-  }
+	if err != nil {
+		return &nClient
+	}
 
-  // We're only connected if it returns a request type of 2.
-  if authPkt.reqType == 2 {
-    nClient.Connected = true
-  }
+	// We're only connected if it returns a request type of 2.
+	if authPkt.reqType == 2 {
+		nClient.Connected = true
+	}
 
-  return &nClient
+	return &nClient
 }
 
-func (client *MCRCONClient) Close() () {
-  client.Connected = false
-  client.conn.Close()
+func (client *MCRCONClient) Close() {
+	client.Connected = false
+	client.conn.Close()
 }
 
 func (client *MCRCONClient) Decode() (*MCRCONPacket, error) {
-  pkt := MCRCONPacket{}
+	pkt := MCRCONPacket{}
 
-  if err := binary.Read(client.rw, binary.LittleEndian, &pkt.length); err != nil {
-    return &pkt, err
-  }
+	if err := binary.Read(client.rw, binary.LittleEndian, &pkt.length); err != nil {
+		return &pkt, err
+	}
 
-  if err := binary.Read(client.rw, binary.LittleEndian, &pkt.reqID); err != nil {
-    return &pkt, err
-  }
+	if err := binary.Read(client.rw, binary.LittleEndian, &pkt.reqID); err != nil {
+		return &pkt, err
+	}
 
-  if err := binary.Read(client.rw, binary.LittleEndian, &pkt.reqType); err != nil {
-    return &pkt, err
-  }
+	if err := binary.Read(client.rw, binary.LittleEndian, &pkt.reqType); err != nil {
+		return &pkt, err
+	}
 
-  // Now we have the details, we'll need to load the length-10 bytes. This is because length includes the 2nd and 3rd fields (ints) and the last 2 null bytes.
-  bytePayload :=  make([]byte, (pkt.length-10))
-  if err := binary.Read(client.rw, binary.LittleEndian, &bytePayload); err != nil {
-    return &pkt, err
-  }
-  pkt.Payload = string(bytePayload)
+	// Now we have the details, we'll need to load the length-10 bytes. This is because length includes the 2nd and 3rd fields (ints) and the last 2 null bytes.
+	bytePayload := make([]byte, (pkt.length - 10))
+	if err := binary.Read(client.rw, binary.LittleEndian, &bytePayload); err != nil {
+		return &pkt, err
+	}
+	pkt.Payload = string(bytePayload)
 
-  // Finally, read the last two bytes to make sure the pad is there. If these are not both NULL something went wrong.
-  if err := binary.Read(client.rw, binary.LittleEndian, &pkt.nullPad); err != nil {
-    return &pkt, err
-  }
-  // TODO: If the nullPad isn't actually NULLNULL we need to return an error.
+	// Finally, read the last two bytes to make sure the pad is there. If these are not both NULL something went wrong.
+	if err := binary.Read(client.rw, binary.LittleEndian, &pkt.nullPad); err != nil {
+		return &pkt, err
+	}
+	// TODO: If the nullPad isn't actually NULLNULL we need to return an error.
 
-  return &pkt, nil
+	return &pkt, nil
 }
 
 // This function assumes that the Packet is complete and correct, and just writes the results out.
-func (client *MCRCONClient) Encode(pkt *MCRCONPacket) (error) {
-  binary.Write(client.rw, binary.LittleEndian, pkt.length)
-  binary.Write(client.rw, binary.LittleEndian, pkt.reqID)
-  binary.Write(client.rw, binary.LittleEndian, pkt.reqType)
-  binary.Write(client.rw, binary.LittleEndian, []byte(pkt.Payload))
-  binary.Write(client.rw, binary.LittleEndian, pkt.nullPad)
-  return client.rw.Flush()
+func (client *MCRCONClient) Encode(pkt *MCRCONPacket) error {
+	binary.Write(client.rw, binary.LittleEndian, pkt.length)
+	binary.Write(client.rw, binary.LittleEndian, pkt.reqID)
+	binary.Write(client.rw, binary.LittleEndian, pkt.reqType)
+	binary.Write(client.rw, binary.LittleEndian, []byte(pkt.Payload))
+	binary.Write(client.rw, binary.LittleEndian, pkt.nullPad)
+	return client.rw.Flush()
 }
 
-
-func (p *MCRCONClient) Build(id int, tp int, payload string) (*MCRCONPacket) {
-  newPkt := MCRCONPacket{}
-  newPkt.length = int32(10+len(payload))
-  newPkt.reqID = int32(id)
-  newPkt.reqType = int32(tp)
-  newPkt.Payload = payload
-  newPkt.nullPad[0] = 0
-  newPkt.nullPad[1] = 0
-  return &newPkt
+func (p *MCRCONClient) Build(id int, tp int, payload string) *MCRCONPacket {
+	newPkt := MCRCONPacket{}
+	newPkt.length = int32(10 + len(payload))
+	newPkt.reqID = int32(id)
+	newPkt.reqType = int32(tp)
+	newPkt.Payload = payload
+	newPkt.nullPad[0] = 0
+	newPkt.nullPad[1] = 0
+	return &newPkt
 }
