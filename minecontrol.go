@@ -17,15 +17,13 @@ func main() {
 
 	fmt.Println("Getting player list...")
 
-	getUserPkt := client.Build(666, 2, "/list")
-	client.Encode(getUserPkt)
-	rUserPkt, rUserErr := client.Decode()
+	listResponse, rUserErr := client.SendCommand("/list")
 
 	if rUserErr != nil {
 		fmt.Println("FATAL: ", rUserErr)
 	}
 
-	fmt.Println(rUserPkt.Payload)
+	fmt.Println(listResponse)
 
 	client.Close()
 }

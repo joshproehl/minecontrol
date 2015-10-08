@@ -145,3 +145,22 @@ func (p *MCRCONClient) Build(id int, tp int, payload string) *MCRCONPacket {
 	newPkt.nullPad[1] = 0
 	return &newPkt
 }
+
+// SendCommand takes a text string, executes the command on the connected client, and returns the text response
+func (client *MCRCONClient) SendCommand(payload string) (string, error) {
+	if client.Connected == false {
+		return "", fmt.Errorf("Client not connected.")
+	}
+
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	getUserPkt := client.Build(rnd.Int(), 2, payload)
+	client.Encode(getUserPkt)
+	rUserPkt, rUserErr := client.Decode()
+
+	if rUserErr != nil {
+		return "", rUserErr
+	} else {
+		return rUserPkt.Payload, nil
+	}
+}
