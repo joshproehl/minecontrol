@@ -1,0 +1,6 @@
+# Potential names of compiled binaries
+minecontrol-go
+minecontrol
+
+#Folder where a test server resides
+test_world/
