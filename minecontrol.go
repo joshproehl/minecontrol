@@ -12,8 +12,9 @@ import (
 
 func main() {
 	options := struct {
-		Address  string        `goptions:"-a, --address, description='The address to connect to'"`
-		Password string        `goptions:"-p, --password, description='Don\\'t prompt for password'"`
+		Address  string        `goptions:"-a, --address, description='The domain name or IP address to connect to'"`
+		Port     int           `goptions:"-p, --port, description='The port to connect to'"`
+		Password string        `goptions:"--password, description='Supply a password at the command line rather than be prompted'"`
 		Help     goptions.Help `goptions:"-h, --help, description='Show this help output'"`
 		goptions.Remainder
 
@@ -22,23 +23,39 @@ func main() {
 		} `goptions:"command"`
 		Repl struct {
 		} `goptions:"repl"`
+		Server struct {
+			Username string `goptions:"--server-username, description='Require this username to connect to the server'"`
+			Password string `goptions:"--server-password, description='Require this password to connect to the server'"`
+			Port     int    `goptions:"--server-port, description='Run the server on this port'"`
+		} `goptions:"server"`
 	}{ // Default values
-		Address:  "127.0.0.1:25575",
-		Password: "NULL_PASSWORD", //Have to use this to be able to detect if they passed in an empty string via -p... Don't like.
+		Address:  "127.0.0.1",
+		Port:     25575, //Have to use this to be able to detect if they passed in an empty string via -p... Don't like.
+		Password: "\"\"",
 	}
+	// Set the nested default values
+	options.Server.Port = 7767
+
 	goptions.ParseAndFail(&options)
 
+	// Catch this before the switch so we can get the password if needed EXCEPT for thi scase.
+	if options.Verbs == "" {
+		goptions.PrintHelp()
+		return
+	}
+
 	// If they haven't passed in a password, prompt for one.
-	if options.Password == "NULL_PASSWORD" {
+	if options.Password == "\"\"" {
 		fmt.Printf("Enter RCON password: ")
 		options.Password = string(gopass.GetPasswd())
 	}
 	switch options.Verbs {
-	//default: goptions.Help
 	case "repl":
 		runREPL(options.Address, options.Password)
 	case "command":
 		runCommand(options.Address, options.Password, strings.Join(options.Remainder, " "))
+	case "server":
+		mcrcon.NewRestServer(options.Address, options.Password, options.Port, options.Server.Username, options.Server.Password, options.Server.Port)
 	}
 }
 
