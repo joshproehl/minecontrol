@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/gorilla/mux"
-	"github.com/joshproehl/minecontrol-go/mcrcon/restServer/api"
+	"github.com/joshproehl/minecontrol/mcrcon/restServer/api"
 	"net/http"
 )
 

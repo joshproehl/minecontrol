@@ -1,12 +1,12 @@
-// minecontrol-go is an application to interact with a minecraft server via the command line or HTTP
+// minecontrol is an application to interact with a minecraft server via the command line or HTTP
 package main
 
 import (
 	"bufio"
 	"fmt"
 	"github.com/howeyc/gopass"
-	"github.com/joshproehl/minecontrol-go/mcrcon"
-	"github.com/joshproehl/minecontrol-go/mcrcon/restServer"
+	"github.com/joshproehl/minecontrol/mcrcon"
+	"github.com/joshproehl/minecontrol/mcrcon/restServer"
 	"github.com/spf13/viper"
 	"github.com/voxelbrain/goptions"
 	"os"
