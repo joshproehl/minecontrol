@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -49,7 +50,9 @@ type MCRCONPacket struct {
 }
 
 // MCRCONClient represents a connection to a single RCON server.
+// MCRCONCLient is fully synchronized and may be shared between multiple goroutines safely.
 type MCRCONClient struct {
+	m         sync.Mutex
 	Connected bool
 	conn      net.Conn
 	rw        *MCRCONReaderWriter
@@ -63,13 +66,13 @@ type MCRCONReaderWriter struct {
 
 // NewClient takes an address and a password, and attempts to set up a TCP connection to an RCON server at the given address,
 // using the given password.
-func NewClient(addr string, passwd string) *MCRCONClient {
+func NewClient(addr string, port int, passwd string) (*MCRCONClient, error) {
 	nClient := MCRCONClient{}
 	nClient.Connected = false
 
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, port))
 	if err != nil {
-		return &nClient
+		return nil, err
 	}
 	nClient.conn = conn
 
@@ -81,31 +84,56 @@ func NewClient(addr string, passwd string) *MCRCONClient {
 	// Make a pseudo-random session ID
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	openPkt := nClient.Build(rnd.Int(), 3, passwd)
-	nClient.Encode(openPkt)
-	authPkt, err := nClient.Decode()
+	openPkt := nClient.buildPacket(rnd.Int(), 3, passwd)
+	nClient.writePacket(openPkt)
+	authPkt, err := nClient.readPacket()
 
 	if err != nil {
-		return &nClient
+		return nil, err
 	}
 
 	// We're only connected if it returns a request type of 2.
 	if authPkt.reqType == 2 {
 		nClient.Connected = true
+	} else {
+		err := fmt.Errorf("Auth packet returned wrong type, not connected.")
+		return nil, err
 	}
 
-	return &nClient
+	return &nClient, nil
 }
 
 // Close terminates RCON connection and sets the connected flag to false.
 func (client *MCRCONClient) Close() {
+	client.m.Lock()
 	client.Connected = false
 	client.conn.Close()
+	client.m.Unlock()
+}
+
+// SendCommand takes a text string, executes the command on the connected client, and returns the text response
+func (client *MCRCONClient) SendCommand(payload string) (string, error) {
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	client.m.Lock()
+	if client.Connected == false {
+		return "", fmt.Errorf("Client not connected.")
+	}
+	getUserPkt := client.buildPacket(rnd.Int(), 2, payload)
+	client.writePacket(getUserPkt)
+	rUserPkt, rUserErr := client.readPacket()
+	client.m.Unlock()
+
+	if rUserErr != nil {
+		return "", rUserErr
+	} else {
+		return rUserPkt.Payload, nil
+	}
 }
 
 // Decode reads the RCON object's buffer and returns an MCRCONPacket representing binary data in the buffer.
 // NOTE: TODO: This currently doesn't support multi-packet responses, and would behave unpredictably if one is encountered.
-func (client *MCRCONClient) Decode() (*MCRCONPacket, error) {
+func (client *MCRCONClient) readPacket() (*MCRCONPacket, error) {
 	pkt := MCRCONPacket{}
 
 	if err := binary.Read(client.rw, binary.LittleEndian, &pkt.length); err != nil {
@@ -138,7 +166,7 @@ func (client *MCRCONClient) Decode() (*MCRCONPacket, error) {
 
 // Encode takes a MCRCONPacket and writes it into the client object's buffer in the correct binary format.
 // This function assumes that the Packet is complete and correct, and just writes the results out.
-func (client *MCRCONClient) Encode(pkt *MCRCONPacket) error {
+func (client *MCRCONClient) writePacket(pkt *MCRCONPacket) error {
 	binary.Write(client.rw, binary.LittleEndian, pkt.length)
 	binary.Write(client.rw, binary.LittleEndian, pkt.reqID)
 	binary.Write(client.rw, binary.LittleEndian, pkt.reqType)
@@ -147,7 +175,7 @@ func (client *MCRCONClient) Encode(pkt *MCRCONPacket) error {
 	return client.rw.Flush()
 }
 
-func (p *MCRCONClient) Build(id int, tp int, payload string) *MCRCONPacket {
+func (client *MCRCONClient) buildPacket(id int, tp int, payload string) *MCRCONPacket {
 	// Build constructs an MCRCONPacket from raw information.
 	newPkt := MCRCONPacket{}
 	newPkt.length = int32(10 + len(payload))
@@ -157,23 +185,4 @@ func (p *MCRCONClient) Build(id int, tp int, payload string) *MCRCONPacket {
 	newPkt.nullPad[0] = 0
 	newPkt.nullPad[1] = 0
 	return &newPkt
-}
-
-// SendCommand takes a text string, executes the command on the connected client, and returns the text response
-func (client *MCRCONClient) SendCommand(payload string) (string, error) {
-	if client.Connected == false {
-		return "", fmt.Errorf("Client not connected.")
-	}
-
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	getUserPkt := client.Build(rnd.Int(), 2, payload)
-	client.Encode(getUserPkt)
-	rUserPkt, rUserErr := client.Decode()
-
-	if rUserErr != nil {
-		return "", rUserErr
-	} else {
-		return rUserPkt.Payload, nil
-	}
 }

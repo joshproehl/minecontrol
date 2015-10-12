@@ -64,9 +64,9 @@ func main() {
 
 	switch options.Verbs {
 	case "repl":
-		runREPL(options.Address, options.Password)
+		runREPL(options.Address, options.Port, options.Password)
 	case "command":
-		runCommand(options.Address, options.Password, strings.Join(options.Remainder, " "))
+		runCommand(options.Address, options.Port, options.Password, strings.Join(options.Remainder, " "))
 	case "server":
 		restServer.NewRestServer(&restServer.ServerConfig{
 			RCON_address:  options.Address,
@@ -81,12 +81,12 @@ func main() {
 
 // runREPL takes an address and password, then sest up a connection to the RCON server and presents the user with a
 // read-evaluate-print-loop command prompt for the connected RCON server.
-func runREPL(address string, password string) {
-	client := mcrcon.NewClient(address, password)
+func runREPL(address string, port int, password string) {
+	client, err := mcrcon.NewClient(address, port, password)
 
-	if client.Connected != true {
-		fmt.Println("FATAL: Client could not connect")
-		return
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	fmt.Println("Type \"exit\" to quit")
@@ -118,13 +118,13 @@ func runREPL(address string, password string) {
 }
 
 // runCommand takes the options passed in from the command line, prints the output of the command, and terminates.
-func runCommand(address string, password string, command string) {
+func runCommand(address string, port int, password string, command string) {
 
-	client := mcrcon.NewClient(address, password)
+	client, err := mcrcon.NewClient(address, port, password)
 
-	if client.Connected != true {
-		fmt.Println("FATAL: Client could not connect")
-		return
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	fmt.Println("Executing command: ", command)
