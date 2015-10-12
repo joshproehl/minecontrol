@@ -1,0 +1,12 @@
+{
+  "verbose": true,
+  "rcon": {
+    "address": "127.0.0.1",
+    "port": 25575,
+    "password": "password"
+  },
+  "server": {
+    "username": "mcuser",
+    "password": "ThePassword"
+  }
+}

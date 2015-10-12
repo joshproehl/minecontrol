@@ -1,3 +1,4 @@
+// minecontrol-go is an application to interact with a minecraft server via the command line or HTTP
 package main
 
 import (
@@ -5,12 +6,21 @@ import (
 	"fmt"
 	"github.com/howeyc/gopass"
 	"github.com/joshproehl/minecontrol-go/mcrcon"
+	"github.com/joshproehl/minecontrol-go/mcrcon/restServer"
+	"github.com/spf13/viper"
 	"github.com/voxelbrain/goptions"
 	"os"
 	"strings"
 )
 
 func main() {
+	viper.SetConfigName("minecontrol")
+	viper.AddConfigPath(".")
+	configErr := viper.ReadInConfig()
+	if configErr != nil {
+		panic(fmt.Errorf("FATAL:", configErr))
+	}
+
 	options := struct {
 		Address  string        `goptions:"-a, --address, description='The domain name or IP address to connect to'"`
 		Port     int           `goptions:"-p, --port, description='The port to connect to'"`
@@ -30,15 +40,17 @@ func main() {
 		} `goptions:"server"`
 	}{ // Default values
 		Address:  "127.0.0.1",
-		Port:     25575, //Have to use this to be able to detect if they passed in an empty string via -p... Don't like.
-		Password: "\"\"",
+		Port:     25575,
+		Password: "\"\"", //Have to use this to be able to detect if they passed in an empty string via --password... Don't like.
 	}
 	// Set the nested default values
 	options.Server.Port = 7767
 
+	//	viper.BindPFlag("password", goptions.Flags().Lookup("password"))
+
 	goptions.ParseAndFail(&options)
 
-	// Catch this before the switch so we can get the password if needed EXCEPT for thi scase.
+	// Catch this before the switch so we can get the password if needed EXCEPT for this scase.
 	if options.Verbs == "" {
 		goptions.PrintHelp()
 		return
@@ -49,13 +61,21 @@ func main() {
 		fmt.Printf("Enter RCON password: ")
 		options.Password = string(gopass.GetPasswd())
 	}
+
 	switch options.Verbs {
 	case "repl":
 		runREPL(options.Address, options.Password)
 	case "command":
 		runCommand(options.Address, options.Password, strings.Join(options.Remainder, " "))
 	case "server":
-		mcrcon.NewRestServer(options.Address, options.Password, options.Port, options.Server.Username, options.Server.Password, options.Server.Port)
+		restServer.NewRestServer(&restServer.ServerConfig{
+			RCON_address:  options.Address,
+			RCON_password: options.Password,
+			RCON_port:     options.Port,
+			Username:      options.Server.Username,
+			Password:      options.Server.Password,
+			Port:          options.Server.Port,
+		})
 	}
 }
 
