@@ -3,7 +3,7 @@ package restServer
 import (
 	"fmt"
 	"github.com/elazarl/go-bindata-assetfs"
-	"github.com/gorilla/mux"
+	"github.com/go-zoo/bone"
 	"github.com/joshproehl/minecontrol/mcrcon/restServer/api"
 	"net/http"
 )
@@ -24,19 +24,18 @@ type ServerConfig struct {
 // NewServer creates a server that will listen for requests over HTTP and interact with the RCON server specified
 // non-/api prefixed routes are served from static files compiled into bindata_assetfs.go
 func NewRestServer(c *ServerConfig) {
-	router := mux.NewRouter()
-
-	// Define the API (JSON) routes
-	api_router := router.PathPrefix("/api").Subrouter()
-	api_router.HandleFunc("/", api.RootHandler)
-	api_router.HandleFunc("/users", api.UsersRootHandler).Name("users")
-	api_router.HandleFunc("/users/{username}", api.UsernameHandler)
+	router := bone.New()
 
 	// Redirect static resources, and then handle the static resources (/gui/) routes with the static asset file
-	router.Methods("GET").Path("/").HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	router.Handle("/", http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		http.Redirect(response, request, "/gui/", 302)
-	})
-	router.PathPrefix("/gui/").Handler(http.StripPrefix("/gui/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""})))
+	}))
+	router.Get("/gui/", http.StripPrefix("/gui/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""})))
+
+	// Define the API (JSON) routes
+	router.GetFunc("/api", api.RootHandler)
+	router.GetFunc("/api/users", api.UsersRootHandler)
+	router.GetFunc("/api/users/:username", api.UsernameHandler)
 
 	// TODO: Require a http basic auth username and password if passed in.
 

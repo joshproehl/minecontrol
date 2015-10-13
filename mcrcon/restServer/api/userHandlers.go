@@ -4,7 +4,7 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
+	"github.com/go-zoo/bone"
 	"github.com/joshproehl/minecontrol/mcrcon"
 	"net/http"
 )
@@ -24,8 +24,7 @@ func UsersRootHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handle a request tho the root reesource
 func UsernameHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	username := vars["username"]
+	username := bone.GetValue(r, "username")
 
 	if err := json.NewEncoder(w).Encode(username); err != nil {
 		panic(err)
