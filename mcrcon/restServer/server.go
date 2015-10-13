@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/go-zoo/bone"
-	"github.com/joshproehl/minecontrol/mcrcon/restServer/api"
+	"github.com/joshproehl/minecontrol/mcrcon"
 	"net/http"
 )
 
@@ -17,6 +17,8 @@ type ServerConfig struct {
 	Port          int
 }
 
+var rcon_client *mcrcon.MCRCONClient
+
 // By default go generate is going to build the production version. Run the command with -debug flag for
 // easier local development of static assets.
 //go:generate go-bindata-assetfs -pkg restServer -prefix "gui/assets/" gui/assets/...
@@ -24,6 +26,13 @@ type ServerConfig struct {
 // NewServer creates a server that will listen for requests over HTTP and interact with the RCON server specified
 // non-/api prefixed routes are served from static files compiled into bindata_assetfs.go
 func NewRestServer(c *ServerConfig) {
+	var err error
+	rcon_client, err = mcrcon.NewClient(c.RCON_address, c.RCON_port, c.RCON_password)
+
+	if err != nil {
+		panic(fmt.Errorf("Could not connect to RCON client. (%s)", err))
+	}
+
 	router := bone.New()
 
 	// Redirect static resources, and then handle the static resources (/gui/) routes with the static asset file
@@ -33,9 +42,9 @@ func NewRestServer(c *ServerConfig) {
 	router.Get("/gui/", http.StripPrefix("/gui/", http.FileServer(&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""})))
 
 	// Define the API (JSON) routes
-	router.GetFunc("/api", api.RootHandler)
-	router.GetFunc("/api/users", api.UsersRootHandler)
-	router.GetFunc("/api/users/:username", api.UsernameHandler)
+	router.GetFunc("/api", apiRootHandler)
+	router.GetFunc("/api/users", usersRootHandler)
+	router.GetFunc("/api/users/:username", usernameHandler)
 
 	// TODO: Require a http basic auth username and password if passed in.
 
