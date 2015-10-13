@@ -9,8 +9,3 @@ import (
 func RootHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("JSON DATA"))
 }
-
-// Handle a request to the /users resource
-func UsersHandler(w http.ResponseWriter, r *http.Request) {
-
-}
