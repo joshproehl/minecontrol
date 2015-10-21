@@ -31,7 +31,7 @@ func GetGoing() {
 	if err := mcCmd.Execute(); err != nil {
 		// Cobra already spat out any errors, but...
 		jww.FATAL.Println("Command failure:", err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	jww.DEBUG.Println("Setup complete. Minecontrol is starting...")
@@ -45,7 +45,7 @@ func GetGoing() {
 		// TODO: Get version numbers dynamically
 		fmt.Println(" ")
 		fmt.Println("Minecontrol version 0.0.1")
-		os.Exit(-1)
+		os.Exit(0)
 	}
 
 	if !viper.IsSet("rcon.password") { // Should detect if we have a password via config or flag, and only execute this if NOT
