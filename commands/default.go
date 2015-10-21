@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"os"
 )
@@ -18,6 +19,9 @@ var fvVerbose, fvVersion bool
 
 // GetGoing is what sets up the app, and then runs Execute() on whichever command was called.
 func GetGoing() {
+	// Note at this point only WARN or above is actually logged to file, and ERROR or above to console.
+	jww.SetLogFile("minecontrol.log")
+
 	// Note that it's critically important to add commands and flags BEFORE you do the config file
 	// stuff, otherwise Viper just silently gives up and doesn't bind the two.
 	addCommands()
@@ -26,19 +30,21 @@ func GetGoing() {
 
 	if err := mcCmd.Execute(); err != nil {
 		// Cobra already spat out any errors, but...
-		fmt.Println("Command failure:", err)
+		jww.FATAL.Println("Command failure:", err)
 		os.Exit(-1)
 	}
 
+	jww.DEBUG.Println("Setup complete. Minecontrol is starting...")
+
 	if viper.GetBool("verbose") {
-		fmt.Println("Enabling Verbose output...")
-		// TODO: Actually be verbose.
+		jww.SetLogThreshold(jww.LevelTrace)
+		jww.SetStdoutThreshold(jww.LevelInfo)
 	}
 
 	if fvVersion {
 		// TODO: Get version numbers dynamically
 		fmt.Println(" ")
-		fmt.Println("Minecontrol is version 0.0.1")
+		fmt.Println("Minecontrol version 0.0.1")
 		os.Exit(-1)
 	}
 
@@ -56,7 +62,7 @@ func getConfigFile() {
 	configErr := viper.ReadInConfig()
 
 	if configErr != nil {
-		fmt.Println("No config file found, using default values.")
+		jww.WARN.Println("No config file found, using default values.")
 	}
 
 	// Bind config file values to the command line options passed in
@@ -71,7 +77,7 @@ func addFlags() {
 	mcCmd.PersistentFlags().IntVarP(&fvPort, "port", "p", 25566, "The port number that minecraft is running on at the provided address")
 	mcCmd.PersistentFlags().StringVarP(&fvPassword, "password", "P", "", "The RCON Password needed to connect to the server")
 	mcCmd.PersistentFlags().BoolVar(&fvVersion, "version", false, "Print the version number and exit")
-	mcCmd.PersistentFlags().BoolVar(&fvVerbose, "verbose", false, "Set verbose mode")
+	mcCmd.PersistentFlags().BoolVar(&fvVerbose, "verbose", false, "Set verbose mode. (Logs even more to the logfile)")
 }
 
 func addCommands() {

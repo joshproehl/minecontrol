@@ -30,7 +30,7 @@ func NewRestServer(c *ServerConfig) {
 	rcon_client, err = mcrcon.NewClient(c.RCON_address, c.RCON_port, c.RCON_password)
 
 	if err != nil {
-		panic(fmt.Errorf("Could not connect to RCON client. (%s)", err))
+		panic(fmt.Errorf("Could not connect to RCON server at %s:%d. (Error was: %s)", c.RCON_address, c.RCON_port, err))
 	}
 
 	router := bone.New()
