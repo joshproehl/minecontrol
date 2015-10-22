@@ -10,7 +10,34 @@ import (
 	"os"
 )
 
-var mcCmd = &cobra.Command{Use: "minecontrol"}
+var mcCmd = &cobra.Command{
+	Use: "minecontrol",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// This will set up the app
+
+		// Note at this point only WARN or above is actually logged to file, and ERROR or above to console.
+		jww.SetLogFile("minecontrol.log")
+
+		if viper.GetBool("verbose") {
+			fmt.Println("Enabling verbose output...")
+			jww.SetLogThreshold(jww.LevelTrace)
+			jww.SetStdoutThreshold(jww.LevelInfo)
+		}
+
+		if fvVersion {
+			// TODO: Get version numbers dynamically
+			fmt.Println(" ")
+			fmt.Println("Minecontrol version 0.0.1")
+			os.Exit(0)
+		}
+
+		if viper.GetString("rcon.password") == "" { // Should detect if we have a password via config or flag, and only execute this if NOT
+			fmt.Printf("Enter RCON password: ")
+			passwd := string(gopass.GetPasswd())
+			viper.Set("rcon.password", passwd)
+		}
+	},
+}
 
 // Flag values
 var fvAddress, fvPassword string
@@ -19,9 +46,6 @@ var fvVerbose, fvVersion bool
 
 // GetGoing is what sets up the app, and then runs Execute() on whichever command was called.
 func GetGoing() {
-	// Note at this point only WARN or above is actually logged to file, and ERROR or above to console.
-	jww.SetLogFile("minecontrol.log")
-
 	// Note that it's critically important to add commands and flags BEFORE you do the config file
 	// stuff, otherwise Viper just silently gives up and doesn't bind the two.
 	addCommands()
@@ -32,26 +56,6 @@ func GetGoing() {
 		// Cobra already spat out any errors, but...
 		jww.FATAL.Println("Command failure:", err)
 		os.Exit(1)
-	}
-
-	jww.DEBUG.Println("Setup complete. Minecontrol is starting...")
-
-	if viper.GetBool("verbose") {
-		jww.SetLogThreshold(jww.LevelTrace)
-		jww.SetStdoutThreshold(jww.LevelInfo)
-	}
-
-	if fvVersion {
-		// TODO: Get version numbers dynamically
-		fmt.Println(" ")
-		fmt.Println("Minecontrol version 0.0.1")
-		os.Exit(0)
-	}
-
-	if !viper.IsSet("rcon.password") { // Should detect if we have a password via config or flag, and only execute this if NOT
-		fmt.Printf("Enter RCON password: ")
-		passwd := string(gopass.GetPasswd())
-		viper.Set("rcon.password", passwd)
 	}
 }
 
